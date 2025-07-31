@@ -34,12 +34,34 @@ function executeStatement() {
     console.log('DB correctly connected');
 }
 
+function insertarUsuario(nombres, apellidos, telefono, correoelectronico, contrasena, callback) {
+    const sqlQuery = `
+        INSERT INTO usuarios (nombres, apellidos, telefono, correoelectronico, contrasena)
+        VALUES (@nombres, @apellidos, @telefono, @correoelectronico, @contrasena)
+    `;
+
+    const request = new Request(sqlQuery, (err, rowCount) => {
+        if (err) {
+            callback(err, null);
+            return;
+        }
+        callback(null, { success: true, message: 'Usuario creado exitosamente' });
+    });
+
+    request.addParameter('nombres', TYPES.NVarChar, nombres);
+    request.addParameter('apellidos', TYPES.NVarChar, apellidos);
+    request.addParameter('telefono', TYPES.BigInt, telefono);
+    request.addParameter('correoelectronico', TYPES.NVarChar, correoelectronico);
+    request.addParameter('contrasena', TYPES.NVarChar, contrasena);
+
+    connection.execSql(request);
+}
+
 function loginUsuario(correoelectronico, contrasena, estado, callback) {
     const request = new Request(
         'sp_LoginUsuario',
         (err) => {
             if (err) {
-                console.error('Error en stored procedure:', err);
                 callback(err, null);
                 return;
             }
@@ -70,7 +92,6 @@ function loginUsuario(correoelectronico, contrasena, estado, callback) {
     request.on('error', (err) => {
         if (!callbackCalled) {
             callbackCalled = true;
-            console.error('Error en request:', err);
             callback(err, null);
         }
     });
@@ -78,4 +99,4 @@ function loginUsuario(correoelectronico, contrasena, estado, callback) {
     connection.callProcedure(request);
 }
 
-module.exports = { loginUsuario };
+module.exports = { loginUsuario, insertarUsuario };
