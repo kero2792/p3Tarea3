@@ -27,7 +27,6 @@ connection.on('connect', (err) => {
         console.error('Connection failed:', err);
     } else {
         console.log('Connected to the database successfully!');
-        // Removido el test automático que cerraba la conexión
     }
 });
 
@@ -42,7 +41,7 @@ function loginUsuario(correoelectronico, contrasena, estado, callback) {
             if (err) {
                 console.error('Error en stored procedure:', err);
                 callback(err, null);
-                return; // Importante: salir aquí para evitar callback múltiple
+                return;
             }
         }
     );
@@ -52,7 +51,7 @@ function loginUsuario(correoelectronico, contrasena, estado, callback) {
     request.addParameter('estado', TYPES.Bit, estado);
 
     let user = null;
-    let callbackCalled = false; // Flag para evitar callback múltiple
+    let callbackCalled = false;
 
     request.on('row', columns => {
         user = {};
@@ -68,7 +67,6 @@ function loginUsuario(correoelectronico, contrasena, estado, callback) {
         }
     });
 
-    // Manejar errores de conexión
     request.on('error', (err) => {
         if (!callbackCalled) {
             callbackCalled = true;
