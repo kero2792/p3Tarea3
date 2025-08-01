@@ -17,7 +17,7 @@ const config = {
         trustServerCertificate: true,
         encrypt: false
     }
-}
+};
 
 const connection = new Connection(config);
 
@@ -30,10 +30,6 @@ connection.on('connect', (err) => {
         console.log('Connected to the database successfully!');
     }
 });
-
-function executeStatement() {
-    console.log('DB correctly connected');
-}
 
 function insertarUsuario(nombres, apellidos, telefono, correoelectronico, contrasena, callback) {
     const sqlQuery = `
@@ -62,12 +58,9 @@ function insertarLibro(titulo, autor, editorial, anio_publicacion, isbn, precio,
     let callbackCalled = false;
 
     const request = new Request('sp_InsertarLibro', (err) => {
-        if (err) {
-            if (!callbackCalled) {
-                callbackCalled = true;
-                callback(err, null);
-            }
-            return;
+        if (err && !callbackCalled) {
+            callbackCalled = true;
+            callback(err, null);
         }
     });
 
@@ -185,20 +178,13 @@ function loginUsuario(correoelectronico, contrasena, estado, callback) {
     connection.callProcedure(request);
 }
 
-// FUNCIÓN PARA ACTUALIZAR LIBRO
 function actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, precio, stock, callback) {
-    console.log('actualizarLibro llamada con:', { id, titulo, autor, editorial, anio_publicacion, isbn, precio, stock });
-
     let callbackCalled = false;
 
     const request = new Request('sp_ActualizarLibro', (err) => {
-        if (err) {
-            console.error('Error en stored procedure sp_ActualizarLibro:', err);
-            if (!callbackCalled) {
-                callbackCalled = true;
-                callback(err, null);
-            }
-            return;
+        if (err && !callbackCalled) {
+            callbackCalled = true;
+            callback(err, null);
         }
     });
 
@@ -212,7 +198,6 @@ function actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, p
     request.addParameter('stock', TYPES.Int, stock);
 
     request.on('requestCompleted', (rowCount, more) => {
-        console.log('actualizarLibro completado, filas afectadas:', rowCount);
         if (!callbackCalled) {
             callbackCalled = true;
             callback(null, { success: true, message: 'Libro actualizado exitosamente', rowCount });
@@ -220,7 +205,6 @@ function actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, p
     });
 
     request.on('error', (err) => {
-        console.error('Error en actualizarLibro:', err);
         if (!callbackCalled) {
             callbackCalled = true;
             callback(err, null);
@@ -230,7 +214,6 @@ function actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, p
     try {
         connection.callProcedure(request);
     } catch (error) {
-        console.error('Error al ejecutar callProcedure:', error);
         if (!callbackCalled) {
             callbackCalled = true;
             callback(error, null);
@@ -238,27 +221,19 @@ function actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, p
     }
 }
 
-// FUNCIÓN PARA ELIMINAR LIBRO (BORRADO LÓGICO)
 function eliminarLibro(id, callback) {
-    console.log('eliminarLibro llamada con ID:', id);
-
     let callbackCalled = false;
 
     const request = new Request('sp_EliminarLibro', (err) => {
-        if (err) {
-            console.error('Error en stored procedure sp_EliminarLibro:', err);
-            if (!callbackCalled) {
-                callbackCalled = true;
-                callback(err, null);
-            }
-            return;
+        if (err && !callbackCalled) {
+            callbackCalled = true;
+            callback(err, null);
         }
     });
 
     request.addParameter('id', TYPES.Int, id);
 
     request.on('requestCompleted', (rowCount, more) => {
-        console.log('eliminarLibro completado, filas afectadas:', rowCount);
         if (!callbackCalled) {
             callbackCalled = true;
             callback(null, { success: true, message: 'Libro eliminado exitosamente', rowCount });
@@ -266,7 +241,6 @@ function eliminarLibro(id, callback) {
     });
 
     request.on('error', (err) => {
-        console.error('Error en eliminarLibro:', err);
         if (!callbackCalled) {
             callbackCalled = true;
             callback(err, null);
@@ -276,17 +250,12 @@ function eliminarLibro(id, callback) {
     try {
         connection.callProcedure(request);
     } catch (error) {
-        console.error('Error al ejecutar callProcedure:', error);
         if (!callbackCalled) {
             callbackCalled = true;
             callback(error, null);
         }
     }
 }
-
-// VERIFICAR QUE LAS FUNCIONES EXISTEN
-console.log('actualizarLibro function defined:', typeof actualizarLibro);
-console.log('eliminarLibro function defined:', typeof eliminarLibro);
 
 module.exports = {
     loginUsuario,
@@ -296,6 +265,3 @@ module.exports = {
     actualizarLibro,
     eliminarLibro
 };
-
-// VERIFICAR EXPORTACIÓN
-console.log('Exported functions:', Object.keys(module.exports));
