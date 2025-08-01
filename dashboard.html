@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Libros - Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         .loading {
             display: none;
@@ -30,6 +31,15 @@
         .btn-success {
             background-color: #198754;
             border-color: #198754;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .action-buttons {
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -70,6 +80,7 @@
                         <th>Precio</th>
                         <th>Stock</th>
                         <th>Estado</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="libros-tbody">
@@ -82,16 +93,18 @@
         </div>
     </div>
 
+    <!-- Modal para Añadir/Editar Libro -->
     <div class="modal fade" id="modalLibro" tabindex="-1" aria-labelledby="modalLibroLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <form class="modal-content" id="formLibro">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalLibroLabel">
-                        <i class="bi bi-book"></i> Añadir Nuevo Libro
+                        <i class="bi bi-book"></i> <span id="modalTitulo">Añadir Nuevo Libro</span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
+                    <input type="hidden" id="libroId" value="">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -156,7 +169,7 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-success" id="btnGuardar">
                         <span class="spinner-border spinner-border-sm d-none" id="spinnerGuardar"></span>
-                        Guardar Libro
+                        <span id="btnTexto">Guardar Libro</span>
                     </button>
                 </div>
             </form>
@@ -166,6 +179,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let librosCache = [];
+        let modoEdicion = false;
 
         function toggleLoading(show) {
             const spinner = document.getElementById('loadingSpinner');
@@ -236,9 +250,51 @@
                             ${libro.estado ? 'Disponible' : 'No disponible'}
                         </span>
                     </td>
+                    <td class="action-buttons">
+                        <button class="btn btn-primary btn-sm me-1" onclick="editarLibro(${libro.id})" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="eliminarLibro(${libro.id})" title="Eliminar" disabled>
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function editarLibro(id) {
+            const libro = librosCache.find(l => l.id === id);
+            if (!libro) {
+                mostrarMensaje('Libro no encontrado', 'danger');
+                return;
+            }
+
+            // Cambiar al modo edición
+            modoEdicion = true;
+
+            // Cambiar el título del modal
+            document.getElementById('modalTitulo').textContent = 'Editar Libro';
+            document.getElementById('btnTexto').textContent = 'Actualizar Libro';
+
+            // Llenar el formulario con los datos del libro
+            document.getElementById('libroId').value = libro.id;
+            document.getElementById('titulo').value = libro.titulo;
+            document.getElementById('autor').value = libro.autor;
+            document.getElementById('editorial').value = libro.editorial || '';
+            document.getElementById('anio_publicacion').value = libro.anio_publicacion || '';
+            document.getElementById('isbn').value = libro.isbn || '';
+            document.getElementById('precio').value = libro.precio || '';
+            document.getElementById('stock').value = libro.stock || 0;
+
+            // Mostrar el modal
+            const modal = new bootstrap.Modal(document.getElementById('modalLibro'));
+            modal.show();
+        }
+
+        function eliminarLibro(id) {
+            // Funcionalidad de eliminar - por implementar
+            mostrarMensaje('Funcionalidad de eliminar en desarrollo', 'info');
         }
 
         function mostrarMensaje(mensaje, tipo = 'info') {
@@ -321,24 +377,37 @@
             };
 
             try {
-                const response = await fetch('/insertar-libro', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
+                let response;
+                if (modoEdicion) {
+                    // Actualizar libro existente
+                    const libroId = document.getElementById('libroId').value;
+                    response = await fetch(`/actualizar-libro/${libroId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                } else {
+                    // Crear nuevo libro
+                    response = await fetch('/insertar-libro', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                }
 
                 const result = await response.json();
 
                 if (result.success) {
-                    mostrarMensaje('Libro añadido correctamente', 'success');
+                    const mensaje = modoEdicion ? 'Libro actualizado correctamente' : 'Libro añadido correctamente';
+                    mostrarMensaje(mensaje, 'success');
 
                     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalLibro'));
                     modal.hide();
-                    e.target.reset();
+                    resetearFormulario();
 
                     await cargarLibros();
                 } else {
-                    mostrarMensaje(result.message || 'Error al añadir el libro', 'danger');
+                    mostrarMensaje(result.message || 'Error al procesar el libro', 'danger');
                 }
             } catch (error) {
                 mostrarMensaje('Error de conexión. Intenta de nuevo.', 'danger');
@@ -348,9 +417,17 @@
             }
         });
 
-        document.getElementById('modalLibro').addEventListener('hidden.bs.modal', function () {
-            limpiarErrores();
+        function resetearFormulario() {
             document.getElementById('formLibro').reset();
+            document.getElementById('libroId').value = '';
+            modoEdicion = false;
+            document.getElementById('modalTitulo').textContent = 'Añadir Nuevo Libro';
+            document.getElementById('btnTexto').textContent = 'Guardar Libro';
+            limpiarErrores();
+        }
+
+        document.getElementById('modalLibro').addEventListener('hidden.bs.modal', function () {
+            resetearFormulario();
         });
 
         document.addEventListener('DOMContentLoaded', function () {

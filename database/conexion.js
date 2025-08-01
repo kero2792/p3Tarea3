@@ -185,4 +185,69 @@ function loginUsuario(correoelectronico, contrasena, estado, callback) {
     connection.callProcedure(request);
 }
 
-module.exports = { loginUsuario, insertarUsuario, insertarLibro, obtenerLibros };
+// FUNCIÓN PARA ACTUALIZAR LIBRO
+function actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, precio, stock, callback) {
+    console.log('actualizarLibro llamada con:', { id, titulo, autor, editorial, anio_publicacion, isbn, precio, stock });
+
+    let callbackCalled = false;
+
+    const request = new Request('sp_ActualizarLibro', (err) => {
+        if (err) {
+            console.error('Error en stored procedure sp_ActualizarLibro:', err);
+            if (!callbackCalled) {
+                callbackCalled = true;
+                callback(err, null);
+            }
+            return;
+        }
+    });
+
+    request.addParameter('id', TYPES.Int, id);
+    request.addParameter('titulo', TYPES.NVarChar, titulo);
+    request.addParameter('autor', TYPES.NVarChar, autor);
+    request.addParameter('editorial', TYPES.NVarChar, editorial);
+    request.addParameter('anio_publicacion', TYPES.Int, anio_publicacion);
+    request.addParameter('isbn', TYPES.NVarChar, isbn);
+    request.addParameter('precio', TYPES.Decimal, precio);
+    request.addParameter('stock', TYPES.Int, stock);
+
+    request.on('requestCompleted', (rowCount, more) => {
+        console.log('actualizarLibro completado, filas afectadas:', rowCount);
+        if (!callbackCalled) {
+            callbackCalled = true;
+            callback(null, { success: true, message: 'Libro actualizado exitosamente', rowCount });
+        }
+    });
+
+    request.on('error', (err) => {
+        console.error('Error en actualizarLibro:', err);
+        if (!callbackCalled) {
+            callbackCalled = true;
+            callback(err, null);
+        }
+    });
+
+    try {
+        connection.callProcedure(request);
+    } catch (error) {
+        console.error('Error al ejecutar callProcedure:', error);
+        if (!callbackCalled) {
+            callbackCalled = true;
+            callback(error, null);
+        }
+    }
+}
+
+// VERIFICAR QUE LA FUNCIÓN EXISTE
+console.log('actualizarLibro function defined:', typeof actualizarLibro);
+
+module.exports = {
+    loginUsuario,
+    insertarUsuario,
+    insertarLibro,
+    obtenerLibros,
+    actualizarLibro
+};
+
+// VERIFICAR EXPORTACIÓN
+console.log('Exported functions:', Object.keys(module.exports));
