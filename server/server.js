@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { loginUsuario, insertarUsuario } = require('../database/conexion');
+const { loginUsuario, insertarUsuario, insertarLibro, obtenerLibros } = require('../database/conexion');
 
 const app = express();
 
@@ -16,6 +16,10 @@ app.get('/', (req, res) => {
 
 app.get('/crearCuenta.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'crearCuenta.html'));
+});
+
+app.get('/dashboard.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dashboard.html'));
 });
 
 app.post('/login', (req, res) => {
@@ -103,6 +107,102 @@ app.post('/crear-cuenta', (req, res) => {
     });
 });
 
-app.listen(3000, () => {
-    console.log('Servidor iniciado en http://localhost:3000');
+app.post('/insertar-libro', (req, res) => {
+    const { titulo, autor, editorial, anio_publicacion, isbn, precio, stock } = req.body;
+
+    if (!titulo || !autor) {
+        return res.status(400).json({
+            success: false,
+            message: 'Título y autor son campos requeridos'
+        });
+    }
+
+    if (titulo.trim().length === 0 || autor.trim().length === 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'Título y autor no pueden estar vacíos'
+        });
+    }
+
+    if (anio_publicacion && (anio_publicacion < 1000 || anio_publicacion > new Date().getFullYear())) {
+        return res.status(400).json({
+            success: false,
+            message: 'Año de publicación no válido'
+        });
+    }
+
+    if (precio && precio < 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'El precio no puede ser negativo'
+        });
+    }
+
+    if (stock && stock < 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'El stock no puede ser negativo'
+        });
+    }
+
+    insertarLibro(titulo, autor, editorial, anio_publicacion, isbn, precio, stock, (err, result) => {
+        if (res.headersSent) {
+            return;
+        }
+
+        if (err) {
+            if (err.message && err.message.includes('UNIQUE')) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Ya existe un libro con ese ISBN'
+                });
+            }
+
+            if (err.message && err.message.includes('constraint')) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error de validación en los datos del libro'
+                });
+            }
+
+            return res.status(500).json({
+                success: false,
+                message: 'Error en el servidor al insertar el libro'
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: 'Libro insertado exitosamente',
+            data: result
+        });
+    });
+});
+
+app.get('/libros', (req, res) => {
+    obtenerLibros((err, libros) => {
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                message: 'Error al obtener los libros'
+            });
+        }
+
+        return res.json({
+            success: true,
+            data: libros
+        });
+    });
+});
+
+app.use((err, req, res, next) => {
+    res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Servidor iniciado en http://localhost:${PORT}`);
 });
