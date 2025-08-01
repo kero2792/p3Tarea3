@@ -1,16 +1,11 @@
 const express = require('express');
 const path = require('path');
-
-// Importar funciones de la base de datos
-const { loginUsuario, insertarUsuario, insertarLibro, obtenerLibros, actualizarLibro } = require('../database/conexion');
-
+const { loginUsuario, insertarUsuario, insertarLibro, obtenerLibros, actualizarLibro, eliminarLibro } = require('../database/conexion');
 const app = express();
 
-// Middlewares
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir archivos estáticos desde la carpeta raíz
 const staticPath = path.join(__dirname, '..');
 app.use(express.static(staticPath));
 
@@ -215,7 +210,7 @@ app.post('/insertar-libro', (req, res) => {
     });
 });
 
-// Ruta para actualizar libro - CORREGIDA
+// Ruta para actualizar libro
 app.put('/actualizar-libro/:id', (req, res) => {
     const libroId = req.params.id;
     console.log('PUT /actualizar-libro/' + libroId + ' - Datos:', req.body);
@@ -300,6 +295,47 @@ app.put('/actualizar-libro/:id', (req, res) => {
     });
 });
 
+// Ruta para eliminar libro (borrado lógico)
+app.delete('/eliminar-libro/:id', (req, res) => {
+    const libroId = req.params.id;
+    console.log('DELETE /eliminar-libro/' + libroId);
+
+    // Validar que el ID sea un número válido
+    const id = parseInt(libroId);
+    if (!libroId || isNaN(id)) {
+        return res.status(400).json({
+            success: false,
+            message: 'ID de libro no válido'
+        });
+    }
+
+    eliminarLibro(id, (err, result) => {
+        if (res.headersSent) return;
+
+        if (err) {
+            console.error('Error al eliminar libro:', err);
+            if (err.message && err.message.includes('No se encontró el libro')) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Libro no encontrado o ya está eliminado'
+                });
+            }
+
+            return res.status(500).json({
+                success: false,
+                message: 'Error en el servidor al eliminar el libro'
+            });
+        }
+
+        console.log('Libro eliminado exitosamente:', result);
+        return res.json({
+            success: true,
+            message: 'Libro eliminado exitosamente',
+            data: result
+        });
+    });
+});
+
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
     console.error('Error no manejado:', err);
@@ -323,4 +359,5 @@ app.listen(PORT, () => {
     console.log('  GET  /libros');
     console.log('  POST /insertar-libro');
     console.log('  PUT  /actualizar-libro/:id');
+    console.log('  DELETE /eliminar-libro/:id');
 });

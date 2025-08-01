@@ -239,7 +239,7 @@
                     <td>${libro.editorial || '-'}</td>
                     <td>${libro.anio_publicacion || '-'}</td>
                     <td>${libro.isbn || '-'}</td>
-                    <td>$${libro.precio ? parseFloat(libro.precio).toFixed(2) : '0.00'}</td>
+                    <td>${libro.precio ? parseFloat(libro.precio).toFixed(2) : '0.00'}</td>
                     <td>
                         <span class="badge ${libro.stock > 0 ? 'bg-success' : 'bg-warning'}">
                             ${libro.stock || 0}
@@ -254,7 +254,7 @@
                         <button class="btn btn-primary btn-sm me-1" onclick="editarLibro(${libro.id})" title="Editar">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm" onclick="eliminarLibro(${libro.id})" title="Eliminar" disabled>
+                        <button class="btn btn-danger btn-sm" onclick="eliminarLibro(${libro.id})" title="Eliminar">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
@@ -292,9 +292,29 @@
             modal.show();
         }
 
-        function eliminarLibro(id) {
-            // Funcionalidad de eliminar - por implementar
-            mostrarMensaje('Funcionalidad de eliminar en desarrollo', 'info');
+        async function eliminarLibro(id) {
+            // Mostrar confirmación antes de eliminar
+            if (!confirm('¿Estás seguro de que deseas eliminar este libro? Esta acción cambiará su estado a "No disponible".')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/eliminar-libro/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    mostrarMensaje('Libro eliminado correctamente', 'success');
+                    await cargarLibros(); // Recargar la lista
+                } else {
+                    mostrarMensaje(result.message || 'Error al eliminar el libro', 'danger');
+                }
+            } catch (error) {
+                console.error('Error al eliminar libro:', error);
+                mostrarMensaje('Error de conexión al eliminar el libro', 'danger');
+            }
         }
 
         function mostrarMensaje(mensaje, tipo = 'info') {
