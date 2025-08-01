@@ -1,15 +1,22 @@
 const express = require('express');
 const path = require('path');
-const { loginUsuario, insertarUsuario, insertarLibro, obtenerLibros } = require('../database/conexion');
+
+// Importar funciones de la base de datos
+const { loginUsuario, insertarUsuario, insertarLibro, obtenerLibros, actualizarLibro } = require('../database/conexion');
 
 const app = express();
 
+// Middlewares
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Servir archivos estáticos desde la carpeta raíz
 const staticPath = path.join(__dirname, '..');
 app.use(express.static(staticPath));
 
+console.log('Serving static files from:', staticPath);
+
+// ========== RUTAS HTML ==========
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
@@ -22,7 +29,12 @@ app.get('/dashboard.html', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dashboard.html'));
 });
 
+// ========== RUTAS API ==========
+
+// Ruta de login
 app.post('/login', (req, res) => {
+    console.log('POST /login - Datos recibidos:', req.body);
+
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -33,11 +45,10 @@ app.post('/login', (req, res) => {
     }
 
     loginUsuario(email, password, true, (err, user) => {
-        if (res.headersSent) {
-            return;
-        }
+        if (res.headersSent) return;
 
         if (err) {
+            console.error('Error en login:', err);
             return res.status(500).json({
                 success: false,
                 message: 'Error en el servidor'
@@ -55,7 +66,10 @@ app.post('/login', (req, res) => {
     });
 });
 
+// Ruta para crear cuenta
 app.post('/crear-cuenta', (req, res) => {
+    console.log('POST /crear-cuenta - Datos recibidos:', req.body);
+
     const { nombre, apellido, telefono, correoelectronico, contrasena } = req.body;
 
     if (!nombre || !apellido || !telefono || !correoelectronico || !contrasena) {
@@ -82,11 +96,10 @@ app.post('/crear-cuenta', (req, res) => {
     }
 
     insertarUsuario(nombre, apellido, telefonoNum, correoelectronico, contrasena, (err, result) => {
-        if (res.headersSent) {
-            return;
-        }
+        if (res.headersSent) return;
 
         if (err) {
+            console.error('Error al crear cuenta:', err);
             if (err.message && err.message.includes('UNIQUE KEY constraint')) {
                 return res.status(409).json({
                     success: false,
@@ -107,7 +120,31 @@ app.post('/crear-cuenta', (req, res) => {
     });
 });
 
+// Ruta para obtener libros
+app.get('/libros', (req, res) => {
+    console.log('GET /libros - Obteniendo libros');
+
+    obtenerLibros((err, libros) => {
+        if (err) {
+            console.error('Error al obtener libros:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Error al obtener los libros'
+            });
+        }
+
+        console.log('Libros obtenidos:', libros.length);
+        return res.json({
+            success: true,
+            data: libros
+        });
+    });
+});
+
+// Ruta para insertar libro
 app.post('/insertar-libro', (req, res) => {
+    console.log('POST /insertar-libro - Datos recibidos:', req.body);
+
     const { titulo, autor, editorial, anio_publicacion, isbn, precio, stock } = req.body;
 
     if (!titulo || !autor) {
@@ -146,11 +183,10 @@ app.post('/insertar-libro', (req, res) => {
     }
 
     insertarLibro(titulo, autor, editorial, anio_publicacion, isbn, precio, stock, (err, result) => {
-        if (res.headersSent) {
-            return;
-        }
+        if (res.headersSent) return;
 
         if (err) {
+            console.error('Error al insertar libro:', err);
             if (err.message && err.message.includes('UNIQUE')) {
                 return res.status(409).json({
                     success: false,
@@ -179,30 +215,112 @@ app.post('/insertar-libro', (req, res) => {
     });
 });
 
-app.get('/libros', (req, res) => {
-    obtenerLibros((err, libros) => {
+// Ruta para actualizar libro - CORREGIDA
+app.put('/actualizar-libro/:id', (req, res) => {
+    const libroId = req.params.id;
+    console.log('PUT /actualizar-libro/' + libroId + ' - Datos:', req.body);
+
+    const { titulo, autor, editorial, anio_publicacion, isbn, precio, stock } = req.body;
+
+    // Validar que el ID sea un número válido
+    const id = parseInt(libroId);
+    if (!libroId || isNaN(id)) {
+        return res.status(400).json({
+            success: false,
+            message: 'ID de libro no válido'
+        });
+    }
+
+    if (!titulo || !autor) {
+        return res.status(400).json({
+            success: false,
+            message: 'Título y autor son campos requeridos'
+        });
+    }
+
+    if (titulo.trim().length === 0 || autor.trim().length === 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'Título y autor no pueden estar vacíos'
+        });
+    }
+
+    if (anio_publicacion && (anio_publicacion < 1000 || anio_publicacion > new Date().getFullYear())) {
+        return res.status(400).json({
+            success: false,
+            message: 'Año de publicación no válido'
+        });
+    }
+
+    if (precio && precio < 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'El precio no puede ser negativo'
+        });
+    }
+
+    if (stock && stock < 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'El stock no puede ser negativo'
+        });
+    }
+
+    actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, precio, stock, (err, result) => {
+        if (res.headersSent) return;
+
         if (err) {
+            console.error('Error al actualizar libro:', err);
+            if (err.message && err.message.includes('No se encontró el libro')) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Libro no encontrado'
+                });
+            }
+
+            if (err.message && err.message.includes('UNIQUE')) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Ya existe un libro con ese ISBN'
+                });
+            }
+
             return res.status(500).json({
                 success: false,
-                message: 'Error al obtener los libros'
+                message: 'Error en el servidor al actualizar el libro'
             });
         }
 
+        console.log('Libro actualizado exitosamente:', result);
         return res.json({
             success: true,
-            data: libros
+            message: 'Libro actualizado exitosamente',
+            data: result
         });
     });
 });
 
+// Middleware de manejo de errores
 app.use((err, req, res, next) => {
-    res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor'
-    });
+    console.error('Error no manejado:', err);
+    if (!res.headersSent) {
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor'
+        });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor iniciado en http://localhost:${PORT}`);
+    console.log('Rutas disponibles:');
+    console.log('  GET  /');
+    console.log('  GET  /dashboard.html');
+    console.log('  GET  /crearCuenta.html');
+    console.log('  POST /login');
+    console.log('  POST /crear-cuenta');
+    console.log('  GET  /libros');
+    console.log('  POST /insertar-libro');
+    console.log('  PUT  /actualizar-libro/:id');
 });
