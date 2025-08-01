@@ -238,15 +238,63 @@ function actualizarLibro(id, titulo, autor, editorial, anio_publicacion, isbn, p
     }
 }
 
-// VERIFICAR QUE LA FUNCIÓN EXISTE
+// FUNCIÓN PARA ELIMINAR LIBRO (BORRADO LÓGICO)
+function eliminarLibro(id, callback) {
+    console.log('eliminarLibro llamada con ID:', id);
+
+    let callbackCalled = false;
+
+    const request = new Request('sp_EliminarLibro', (err) => {
+        if (err) {
+            console.error('Error en stored procedure sp_EliminarLibro:', err);
+            if (!callbackCalled) {
+                callbackCalled = true;
+                callback(err, null);
+            }
+            return;
+        }
+    });
+
+    request.addParameter('id', TYPES.Int, id);
+
+    request.on('requestCompleted', (rowCount, more) => {
+        console.log('eliminarLibro completado, filas afectadas:', rowCount);
+        if (!callbackCalled) {
+            callbackCalled = true;
+            callback(null, { success: true, message: 'Libro eliminado exitosamente', rowCount });
+        }
+    });
+
+    request.on('error', (err) => {
+        console.error('Error en eliminarLibro:', err);
+        if (!callbackCalled) {
+            callbackCalled = true;
+            callback(err, null);
+        }
+    });
+
+    try {
+        connection.callProcedure(request);
+    } catch (error) {
+        console.error('Error al ejecutar callProcedure:', error);
+        if (!callbackCalled) {
+            callbackCalled = true;
+            callback(error, null);
+        }
+    }
+}
+
+// VERIFICAR QUE LAS FUNCIONES EXISTEN
 console.log('actualizarLibro function defined:', typeof actualizarLibro);
+console.log('eliminarLibro function defined:', typeof eliminarLibro);
 
 module.exports = {
     loginUsuario,
     insertarUsuario,
     insertarLibro,
     obtenerLibros,
-    actualizarLibro
+    actualizarLibro,
+    eliminarLibro
 };
 
 // VERIFICAR EXPORTACIÓN
